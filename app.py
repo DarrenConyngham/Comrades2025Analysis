@@ -146,7 +146,7 @@ df['Time (minutes)'] = df['Time (seconds)'] / 60
 df['Time (hours)'] = df['Time (minutes)'] / 60
 
 # split the 'Wave' column into two columns on the " - " delimiter
-df[['Batch Latter', 'Wave Number']] = df['Wave'].str.split(' - ', expand=True)
+df[['Batch Letter', 'Wave Number']] = df['Wave'].str.split(' - ', expand=True)
 
 
 def format_timedelta_without_days(td):
@@ -162,13 +162,16 @@ df['TimeFormatted'] = df['Time'].apply(format_timedelta_without_days)
 
 
 
+
 # Create strip plot with Plotly Express
 fig2 = px.strip(df.sort_values(by='Wave'), 
                y='Time (hours)',
-               title='Distribution of Finish Times at Comrades Marathon 2025 by Wave',
+               title='Distribution of Finish Times at Comrades Marathon 2025 by Group',
                template='simple_white',
-               color='Wave',  # Color by Wave Number
-               color_discrete_sequence=px.colors.qualitative.Set1  # Changed to bolder Set1 colors
+               x='Batch Letter',  # Color by Wave Number
+                color='Wave Number',  # Use Wave Number for x-axis
+               hover_data=['Name', 'Country', 'Category', 'TimeFormatted'],  # Add hover data
+               color_discrete_sequence=px.colors.qualitative.Set2  # Changed to bolder Set1 colors
                )
 
 fig2.update_layout(
@@ -176,7 +179,7 @@ fig2.update_layout(
     yaxis={'autorange': 'reversed',
            'ticksuffix': ' hours'},  # Add 'hours' suffix to y-axis labels
     showlegend=True,
-    xaxis_title="Time (hours)", 
+    xaxis_title="Batch", 
     xaxis_showticklabels=True,
     yaxis_showticklabels=True,
     height=900,
@@ -232,6 +235,7 @@ participant_details = df[df['Name'] == participant].iloc[0]
 fig = px.strip(df, 
                y='Time (hours)',
                title='Overall Distribution of Finish Times at Comrades Marathon 2025',
+               hover_data=['Name', 'Country', 'Category', 'TimeFormatted'],
                template='simple_white'
                )
 
@@ -252,9 +256,8 @@ fig.update_traces(
         size=3,
         opacity=0.3
     ),
-    text=df['Name'],
-    hovertemplate='<b>%{text}</b><br>Time: %{y:.2f} hours<extra></extra>'
-)
+    text=df['Name']
+    )
 
 
 fig.add_hline(y=6, line=dict(color='black', width=0.6, dash='dash'),
@@ -275,9 +278,10 @@ fig.add_hline(y=12, line=dict(color='black', width=0.6, dash='dash'),
 
 if participant_details['Time (hours)'] is not pd.NaT:
     fig.add_hline(y=participant_details['Time (hours)'], 
-                  line=dict(color='green', width=1, dash='solid'),
+                  line=dict(color='orange', width=3, dash='solid'),
                   annotation_text=f'{participant_details["Name"].upper()}', 
-                  annotation_position='top left')
+                  annotation_position='top left',
+                  annotation=dict(font=dict(size=18)))
 
 
 st.plotly_chart(fig, use_container_width=True)
