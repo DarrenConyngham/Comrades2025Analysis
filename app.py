@@ -182,12 +182,17 @@ fig2.update_layout(
     xaxis_title="Batch", 
     xaxis_showticklabels=True,
     yaxis_showticklabels=True,
-    height=900,
+    height=700,
     font=dict(size=14),  # Increase general font size
     legend=dict(
         font=dict(size=20),  # Increased legend font size
         itemsizing='constant',  # Make legend items consistent size
-        itemwidth=30  # Increase width of legend items
+        itemwidth=30,  # Increase width of legend items
+        y=1,  # Position above plot
+        x=0.5,  # Center horizontally
+        xanchor="center",
+        yanchor="top",
+        orientation="h"
     )
 )
 
@@ -240,13 +245,12 @@ fig = px.strip(df,
                )
 
 fig.update_layout(
-    title_font_size=24,
+    # title_font_size=24,
     yaxis={'autorange': 'reversed',
            'ticksuffix': ' hours'},  # Add 'hours' suffix to y-axis labels
     showlegend=False,
-    xaxis_title="Time (hours)",
     yaxis_showticklabels=True,
-    height=900,
+    height=700,
     font=dict(size=14),  # Increase general font size
 )
 
