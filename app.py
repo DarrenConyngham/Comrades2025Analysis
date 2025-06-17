@@ -9,7 +9,7 @@ import plotly.graph_objects as go
 st.title('Comrades 2025 Results Analysis')
 st.markdown('This app allows you to explore the results of the Comrades Marathon 2025. ' \
 'You can view the distribution of finish times, the top countries by number of participants, and the distribution of participants by age category. ' \
-'You can also select a participant to view their details.')
+'You can also select a participant to view their details. Please ensure that you are in light mode for the best experience.')
 
 df = pd.read_csv('comrades_2025_results.csv')
 
