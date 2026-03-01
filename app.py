@@ -1,10 +1,7 @@
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
 import plotly.express as px
 import streamlit as st
-import plotly.graph_objects as go
 
 st.title('Comrades 2025 Results Analysis')
 st.markdown('This app allows you to explore the results of the Comrades Marathon 2025. ' \
@@ -21,8 +18,8 @@ df['Gen Pos'] = df['Gen Pos'].astype('Int32')
 df['DNF'] = df['Time'].str.contains('DNF')
 df['Not started'] = df['Time'].str.contains('Not started')
 df['UOF'] = df['Time'].str.contains('UOF')
-df['Started'] = df['Time'].str.contains('Started') 
-df['DNS'] = df['Time'].str.contains('DNS') 
+df['Started'] = df['Time'].str.contains('Started')
+df['DNS'] = df['Time'].str.contains('DNS')
 
 # create a single column called 'Status' that contains the status of the participant
 df['Status'] = np.select(
@@ -30,119 +27,64 @@ df['Status'] = np.select(
     ['Did Not Finish', 'Not started', 'Unofficial Finisher', 'Started', 'Did Not Start'],
     default='Finished'
 )
+df.drop(columns=['DNF', 'Not started', 'UOF', 'Started', 'DNS'], inplace=True)
 
-# create a horizontal bar chart showing the distribution of participants by status
-fig_bar_status = px.bar(df['Status'].value_counts().sort_values(ascending=True).reset_index(),
-                        x='count',
-                        y='Status',
-                        title='Number of Participants by Finishing Status',
-                        color_discrete_sequence=['darkred'],
-                        orientation='h')
-fig_bar_status.update_layout(
-    title_font_size=24,
-    font=dict(size=14),
-    xaxis_title="Number of Participants",
-    yaxis_title="Status",
-    xaxis=dict(
-        tickfont=dict(size=16)
-    ),
-    yaxis=dict(
-        tickfont=dict(size=16)
+
+def make_bar_chart(data, y_col, title, color):
+    fig = px.bar(data.reset_index(),
+                 x='count',
+                 y=y_col,
+                 title=title,
+                 color_discrete_sequence=[color],
+                 orientation='h')
+    fig.update_layout(
+        title_font_size=24,
+        font=dict(size=14),
+        xaxis_title="Number of Participants",
+        yaxis_title=y_col,
+        xaxis=dict(tickfont=dict(size=16)),
+        yaxis=dict(tickfont=dict(size=16)),
+        margin=dict(r=80)
     )
-)
-fig_bar_status.update_traces(
-    textposition='inside',
-    text=df['Status'].value_counts().sort_values(ascending=True),
-    texttemplate='%{text:,}'
-)
-st.plotly_chart(fig_bar_status, use_container_width=True)
-
-
-
-# create a horizontal bar chart showing the top 10 countries by number of participants
-top_10_countries = df['Country'].value_counts().nlargest(5).sort_values(ascending=True)
-fig_bar_countries = px.bar(top_10_countries.reset_index(),
-                        x='count',
-                        y='Country',
-                        title='Top 5 Countries by Number of Participants',
-                        color_discrete_sequence=['darkgreen'],
-                        orientation='h')
-fig_bar_countries.update_layout(
-    title_font_size=24,
-    font=dict(size=14),
-    xaxis_title="Number of Participants",
-    yaxis_title="Country",
-    xaxis=dict(
-        tickfont=dict(size=16)
-    ),
-    yaxis=dict(
-        tickfont=dict(size=16)
+    fig.update_traces(
+        textposition='outside',
+        text=data,
+        texttemplate='%{text:,}',
+        cliponaxis=False
     )
-)
-fig_bar_countries.update_traces(
-    textposition='inside',
-    text=top_10_countries,
-    texttemplate='%{text:,}'
-)
-st.plotly_chart(fig_bar_countries, use_container_width=True)
+    return fig
 
 
-# create a horizontal bar chart showing the distribution of participants by Category
+# distribution of participants by status
+status_counts = df['Status'].value_counts().sort_values(ascending=True)
+st.plotly_chart(make_bar_chart(status_counts, 'Status',
+                               'Number of Participants by Finishing Status', 'darkred'),
+                use_container_width=True)
+
+# top 5 countries by number of participants
+top_5_countries = df['Country'].value_counts().nlargest(5).sort_values(ascending=True)
+st.plotly_chart(make_bar_chart(top_5_countries, 'Country',
+                               'Top 5 Countries by Number of Participants', 'darkgreen'),
+                use_container_width=True)
+
+# distribution of participants by age category
 cat_dist = df['Category'].value_counts().sort_values(ascending=True)
-fig_bar_cat = px.bar(cat_dist.reset_index(),
-                        x='count',
-                        y='Category',
-                        title='Number of Participants by Age Category',
-                        color_discrete_sequence=['darkorange'],
-                        orientation='h')
-fig_bar_cat.update_layout(
-    title_font_size=24,
-    font=dict(size=14),
-    xaxis_title="Number of Participants",
-    yaxis_title="Category",
-    xaxis=dict(
-        tickfont=dict(size=16)
-    ),
-    yaxis=dict(
-        tickfont=dict(size=16)
-    )
-)
-fig_bar_cat.update_traces(
-    textposition='inside',
-    text=cat_dist,
-    texttemplate='%{text:,}'
-)
-st.plotly_chart(fig_bar_cat, use_container_width=True)
+st.plotly_chart(make_bar_chart(cat_dist, 'Category',
+                               'Number of Participants by Age Category', 'darkorange'),
+                use_container_width=True)
 
 
+# clean and convert Time columns
+status_strings = ['DNF', 'Not started', 'UOF', 'Started', 'DNS']
+for col in ['Time', 'Net Time']:
+    for s in status_strings:
+        df[col] = df[col].str.replace(s, '', regex=False)
+    df[col] = pd.to_timedelta(df[col], errors='coerce')
 
-
-# remove the DNF, Not started, UOF, and Started values from the Time column
-df['Time'] = df['Time'].str.replace('DNF', '', regex=False)
-df['Time'] = df['Time'].str.replace('Not started', '', regex=False)
-df['Time'] = df['Time'].str.replace('UOF', '', regex=False)
-df['Time'] = df['Time'].str.replace('Started', '', regex=False)
-df['Time'] = df['Time'].str.replace('DNS', '', regex=False)
-# convert the Time column to a timedelta
-df['Time'] = pd.to_timedelta(df['Time'], errors='coerce')
-
-
-# remove the DNF, Not started, UOF, and Started values from the Time column
-df['Net Time'] = df['Net Time'].str.replace('DNF', '', regex=False)
-df['Net Time'] = df['Net Time'].str.replace('Not started', '', regex=False)
-df['Net Time'] = df['Net Time'].str.replace('UOF', '', regex=False)
-df['Net Time'] = df['Net Time'].str.replace('Started', '', regex=False)
-df['Net Time'] = df['Net Time'].str.replace('DNS', '', regex=False)
-# convert the Time column to a timedelta
-df['Net Time'] = pd.to_timedelta(df['Net Time'], errors='coerce')
-
-
-#convert the 'Time' column to seconds for easier calculations
+# convert Time to numeric units
 df['Time (seconds)'] = df['Time'].dt.total_seconds()
 df['Fraction of Cut Off'] = df['Time (seconds)'] / (60 * 60 * 12)
-#convert the 'Time' column to minutes
 df['Time (minutes)'] = df['Time (seconds)'] / 60
-#convert the 'Time' column to hours
 df['Time (hours)'] = df['Time (minutes)'] / 60
 
 # split the 'Wave' column into two columns on the " - " delimiter
@@ -157,139 +99,89 @@ def format_timedelta_without_days(td):
     minutes, seconds = divmod(remainder, 60)
     return f"{hours:02.0f}:{minutes:02.0f}:{seconds:02.0f}"
 
-# Apply the formatting function to the 'Time' column
+
 df['TimeFormatted'] = df['Time'].apply(format_timedelta_without_days)
 
 
+def add_cutoff_lines(fig):
+    cutoffs = [
+        (6,   'Wally Hayward Cut-Off '),
+        (7,   'Isavel Roche-Kelly Cut-Off '),
+        (7.5, 'Silver Cut-Off '),
+        (9,   'Bill Rowan Cut-Off '),
+        (10,  'Robert Mtshali Cut-Off '),
+        (11,  'Bronze Cut-Off '),
+        (12,  'Vic Clapham Cut-Off '),
+    ]
+    for y, label in cutoffs:
+        fig.add_hline(y=y, line=dict(color='black', width=0.6, dash='dash'),
+                      annotation_text=label, annotation_position='bottom right')
 
 
-# Create strip plot with Plotly Express
-fig2 = px.strip(df.sort_values(by='Wave'), 
-               y='Time (hours)',
-               title='Distribution of Finish Times at Comrades Marathon 2025 by Group',
-               template='simple_white',
-               x='Batch Letter',  # Color by Wave Number
-                color='Wave Number',  # Use Wave Number for x-axis
-               hover_data=['Name', 'Country', 'Category', 'TimeFormatted'],  # Add hover data
-               color_discrete_sequence=px.colors.qualitative.Set2  # Changed to bolder Set1 colors
-               )
+# strip chart by wave/batch
+fig_strip_wave = px.strip(df.sort_values(by='Wave'),
+                           y='Time (hours)',
+                           title='Distribution of Finish Times at Comrades Marathon 2025 by Group',
+                           template='simple_white',
+                           x='Batch Letter',
+                           color='Wave Number',
+                           hover_data=['Name', 'Country', 'Category', 'TimeFormatted'],
+                           color_discrete_sequence=px.colors.qualitative.Set2)
 
-fig2.update_layout(
+fig_strip_wave.update_layout(
     title_font_size=24,
-    yaxis={'autorange': 'reversed',
-           'ticksuffix': ' hours'},  # Add 'hours' suffix to y-axis labels
+    yaxis={'autorange': 'reversed', 'ticksuffix': ' hours'},
     showlegend=True,
-    xaxis_title="Batch", 
+    xaxis_title="Batch",
     xaxis_showticklabels=True,
     yaxis_showticklabels=True,
     height=700,
-    font=dict(size=14),  # Increase general font size
+    font=dict(size=14),
     legend=dict(
-        font=dict(size=20),  # Increased legend font size
-        itemsizing='constant',  # Make legend items consistent size
-        itemwidth=30,  # Increase width of legend items
-        y=1,  # Position above plot
-        x=0.5,  # Center horizontally
+        font=dict(size=20),
+        itemsizing='constant',
+        itemwidth=30,
+        y=1,
+        x=0.5,
         xanchor="center",
         yanchor="top",
         orientation="h"
     )
 )
-
-fig2.update_traces(
-    jitter=1,
-    marker=dict(
-        size=3,
-        opacity=0.3
-    )
-)
-
-fig2.add_hline(y=6, line=dict(color='black', width=0.6, dash='dash'),
-              annotation_text='Wally Hayward Cut-Off ', annotation_position='bottom right')
-fig2.add_hline(y=7, line=dict(color='black', width=0.6, dash='dash'),
-              annotation_text='Isavel Roche-Kelly Cut-Off ', annotation_position='bottom right')
-fig2.add_hline(y=7.5, line=dict(color='black', width=0.6, dash='dash'),
-              annotation_text='Silver Cut-Off ', annotation_position='bottom right')
-fig2.add_hline(y=9, line=dict(color='black', width=0.6, dash='dash'),
-              annotation_text='Bill Rowan Cut-Off ', annotation_position='bottom right')
-fig2.add_hline(y=10, line=dict(color='black', width=0.6, dash='dash'),
-              annotation_text='Robert Mtshali Cut-Off ', annotation_position='bottom right')
-fig2.add_hline(y=11, line=dict(color='black', width=0.6, dash='dash'),
-              annotation_text='Bronze Cut-Off ', annotation_position='bottom right')
-fig2.add_hline(y=12, line=dict(color='black', width=0.6, dash='dash'),
-              annotation_text='Vic Clapham Cut-Off ', annotation_position='bottom right')
-
-fig2.update_traces(
-    jitter=1,
-    marker=dict(
-        size=3,
-        opacity=0.3
-    )
-)
-
-st.plotly_chart(fig2, use_container_width=True)
+fig_strip_wave.update_traces(jitter=1, marker=dict(size=3, opacity=0.3))
+add_cutoff_lines(fig_strip_wave)
+st.plotly_chart(fig_strip_wave, use_container_width=True)
 
 
-# add a selectbox to choose the participant
+# participant selector
 participant = st.selectbox('Select a participant:', list(df['Name'].unique()))
-
-# display the participant's details
 participant_details = df[df['Name'] == participant].iloc[0]
 
-# Create strip plot with Plotly Express
-fig = px.strip(df, 
-               y='Time (hours)',
-               title='Overall Distribution of Finish Times at Comrades Marathon 2025',
-               hover_data=['Name', 'Country', 'Category', 'TimeFormatted'],
-               template='simple_white'
-               )
+# overall strip chart
+fig_strip_overall = px.strip(df,
+                              y='Time (hours)',
+                              title='Overall Distribution of Finish Times at Comrades Marathon 2025',
+                              hover_data=['Name', 'Country', 'Category', 'TimeFormatted'],
+                              template='simple_white')
 
-fig.update_layout(
-    # title_font_size=24,
-    yaxis={'autorange': 'reversed',
-           'ticksuffix': ' hours'},  # Add 'hours' suffix to y-axis labels
+fig_strip_overall.update_layout(
+    yaxis={'autorange': 'reversed', 'ticksuffix': ' hours'},
     showlegend=False,
     yaxis_showticklabels=True,
     height=700,
-    font=dict(size=14),  # Increase general font size
+    font=dict(size=14),
 )
+fig_strip_overall.update_traces(jitter=1, marker=dict(size=3, opacity=0.3), text=df['Name'])
+add_cutoff_lines(fig_strip_overall)
 
-fig.update_traces(
-    jitter=1,
-    marker=dict(
-        size=3,
-        opacity=0.3
-    ),
-    text=df['Name']
-    )
+if pd.notna(participant_details['Time (hours)']):
+    fig_strip_overall.add_hline(y=participant_details['Time (hours)'],
+                                line=dict(color='orange', width=3, dash='solid'),
+                                annotation_text=f'{participant_details["Name"].upper()}',
+                                annotation_position='top left',
+                                annotation=dict(font=dict(size=18)))
 
+st.plotly_chart(fig_strip_overall, use_container_width=True)
 
-fig.add_hline(y=6, line=dict(color='black', width=0.6, dash='dash'),
-              annotation_text='Wally Hayward Cut-Off ', annotation_position='bottom right')
-fig.add_hline(y=7, line=dict(color='black', width=0.6, dash='dash'),
-              annotation_text='Isavel Roche-Kelly Cut-Off ', annotation_position='bottom right')
-fig.add_hline(y=7.5, line=dict(color='black', width=0.6, dash='dash'),
-              annotation_text='Silver Cut-Off ', annotation_position='bottom right')
-fig.add_hline(y=9, line=dict(color='black', width=0.6, dash='dash'),
-              annotation_text='Bill Rowan Cut-Off ', annotation_position='bottom right')
-fig.add_hline(y=10, line=dict(color='black', width=0.6, dash='dash'),
-              annotation_text='Robert Mtshali Cut-Off ', annotation_position='bottom right')
-fig.add_hline(y=11, line=dict(color='black', width=0.6, dash='dash'),
-              annotation_text='Bronze Cut-Off ', annotation_position='bottom right')
-fig.add_hline(y=12, line=dict(color='black', width=0.6, dash='dash'),
-              annotation_text='Vic Clapham Cut-Off ', annotation_position='bottom right')
-
-
-if participant_details['Time (hours)'] is not pd.NaT:
-    fig.add_hline(y=participant_details['Time (hours)'], 
-                  line=dict(color='orange', width=3, dash='solid'),
-                  annotation_text=f'{participant_details["Name"].upper()}', 
-                  annotation_position='top left',
-                  annotation=dict(font=dict(size=18)))
-
-
-st.plotly_chart(fig, use_container_width=True)
-
-# Create a footer saying "Created by [Your Name]"
 st.markdown("---")
 st.markdown("Created by Darren Conyngham")
