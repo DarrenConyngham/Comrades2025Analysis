@@ -8,26 +8,56 @@ st.markdown('This app allows you to explore the results of the Comrades Marathon
 'You can view the distribution of finish times, the top countries by number of participants, and the distribution of participants by age category. ' \
 'You can also select a participant to view their details. Please ensure that you are in light mode for the best experience.')
 
-df = pd.read_csv('comrades_2025_results.csv')
 
-df['Pos'] = df['Pos'].astype('Int32')
-df['Cat Pos'] = df['Cat Pos'].astype('Int32')
-df['Gen Pos'] = df['Gen Pos'].astype('Int32')
+def format_timedelta_without_days(td):
+    if pd.isna(td):
+        return ""
+    total_seconds = td.total_seconds()
+    hours, remainder = divmod(total_seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    return f"{hours:02.0f}:{minutes:02.0f}:{seconds:02.0f}"
 
-# convert the values of DNF, Not started, UOF, Started in the time column to their own boolean columns
-df['DNF'] = df['Time'].str.contains('DNF')
-df['Not started'] = df['Time'].str.contains('Not started')
-df['UOF'] = df['Time'].str.contains('UOF')
-df['Started'] = df['Time'].str.contains('Started')
-df['DNS'] = df['Time'].str.contains('DNS')
 
-# create a single column called 'Status' that contains the status of the participant
-df['Status'] = np.select(
-    [df['DNF'], df['Not started'], df['UOF'], df['Started'], df['DNS']],
-    ['Did Not Finish', 'Not started', 'Unofficial Finisher', 'Started', 'Did Not Start'],
-    default='Finished'
-)
-df.drop(columns=['DNF', 'Not started', 'UOF', 'Started', 'DNS'], inplace=True)
+@st.cache_data
+def load_results():
+    df = pd.read_csv('comrades_2025_results.csv')
+
+    df['Pos'] = df['Pos'].astype('Int32')
+    df['Cat Pos'] = df['Cat Pos'].astype('Int32')
+    df['Gen Pos'] = df['Gen Pos'].astype('Int32')
+
+    status_masks = [
+        df['Time'].str.contains('DNF'),
+        df['Time'].str.contains('Not started'),
+        df['Time'].str.contains('UOF'),
+        df['Time'].str.contains('Started'),
+        df['Time'].str.contains('DNS'),
+    ]
+    df['Status'] = np.select(
+        status_masks,
+        ['Did Not Finish', 'Not started', 'Unofficial Finisher', 'Started', 'Did Not Start'],
+        default='Finished'
+    )
+
+    # clean and convert Time columns
+    status_strings = ['DNF', 'Not started', 'UOF', 'Started', 'DNS']
+    for col in ['Time', 'Net Time']:
+        for s in status_strings:
+            df[col] = df[col].str.replace(s, '', regex=False)
+        df[col] = pd.to_timedelta(df[col], errors='coerce')
+
+    # convert Time to numeric units
+    df['Time (seconds)'] = df['Time'].dt.total_seconds()
+    df['Fraction of Cut Off'] = df['Time (seconds)'] / (60 * 60 * 12)
+    df['Time (minutes)'] = df['Time (seconds)'] / 60
+    df['Time (hours)'] = df['Time (minutes)'] / 60
+
+    # split the 'Wave' column into two columns on the " - " delimiter
+    df[['Batch Letter', 'Wave Number']] = df['Wave'].str.split(' - ', expand=True)
+
+    df['TimeFormatted'] = df['Time'].apply(format_timedelta_without_days)
+
+    return df
 
 
 def make_bar_chart(data, y_col, title, color):
@@ -55,6 +85,9 @@ def make_bar_chart(data, y_col, title, color):
     return fig
 
 
+df = load_results()
+
+
 # distribution of participants by status
 status_counts = df['Status'].value_counts().sort_values(ascending=True)
 st.plotly_chart(make_bar_chart(status_counts, 'Status',
@@ -72,35 +105,6 @@ cat_dist = df['Category'].value_counts().sort_values(ascending=True)
 st.plotly_chart(make_bar_chart(cat_dist, 'Category',
                                'Number of Participants by Age Category', 'darkorange'),
                 use_container_width=True)
-
-
-# clean and convert Time columns
-status_strings = ['DNF', 'Not started', 'UOF', 'Started', 'DNS']
-for col in ['Time', 'Net Time']:
-    for s in status_strings:
-        df[col] = df[col].str.replace(s, '', regex=False)
-    df[col] = pd.to_timedelta(df[col], errors='coerce')
-
-# convert Time to numeric units
-df['Time (seconds)'] = df['Time'].dt.total_seconds()
-df['Fraction of Cut Off'] = df['Time (seconds)'] / (60 * 60 * 12)
-df['Time (minutes)'] = df['Time (seconds)'] / 60
-df['Time (hours)'] = df['Time (minutes)'] / 60
-
-# split the 'Wave' column into two columns on the " - " delimiter
-df[['Batch Letter', 'Wave Number']] = df['Wave'].str.split(' - ', expand=True)
-
-
-def format_timedelta_without_days(td):
-    if pd.isna(td):
-        return ""
-    total_seconds = td.total_seconds()
-    hours, remainder = divmod(total_seconds, 3600)
-    minutes, seconds = divmod(remainder, 60)
-    return f"{hours:02.0f}:{minutes:02.0f}:{seconds:02.0f}"
-
-
-df['TimeFormatted'] = df['Time'].apply(format_timedelta_without_days)
 
 
 def add_cutoff_lines(fig):
