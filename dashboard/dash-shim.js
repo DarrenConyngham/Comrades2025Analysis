@@ -6,7 +6,6 @@
     runners: 'data/runners.csv',
     leaders: 'data/leaders.csv',
     route: 'data/route.json',
-    coast: 'data/coast.json',
     places: 'data/places.json',
   };
   const results = {};
