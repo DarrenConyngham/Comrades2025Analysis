@@ -1,0 +1,794 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Comrades 2025 Results</title>
+<!-- Standalone copy of the Comrades 2025 results dashboard. Serve this folder
+     (python -m http.server, then open http://localhost:8000) so the data files load. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=Source+Serif+4:wght@400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --font-anthropic-sans: Inter, system-ui, sans-serif;
+  --font-anthropic-serif: "Source Serif 4", Georgia, serif;
+  --color-bg: #f7f6f2; --color-panel: #ffffff; --color-fg: #1f1e1c; --color-fg-muted: #6b6a66;
+  --color-border-line: #e3e1da; --color-ok: #2f7d4f; --color-warn: #a86b00; --color-bad: #c43d2f;
+  --cds-chart-muted: #b9b6ad; --cds-chart-grid: #ebe9e3; --cds-chart-axis: #a8a59c; --cds-chart-reference: #8b8880;
+  --cds-surface-popover: #ffffff; --cds-border: #e3e1da; --cds-text-secondary: #6b6a66;
+  --cds-shadow-popover: 0 4px 16px rgba(0,0,0,.12);
+  --cds-font-size-caption: .8rem; --cds-font-size-body: .9375rem; --cds-font-size-heading: 1.0625rem; --cds-font-size-title: 1.75rem;
+  --cds-font-weight-medium: 500;
+  --cds-gap-xs: .25rem; --cds-gap-sm: .5rem; --cds-gap-md: 1rem; --cds-gap-lg: 1.5rem; --cds-gap-xl: 2rem;
+  --cds-pad-xs: .25rem; --cds-pad-sm: .5rem; --cds-pad-md: .75rem; --cds-pad-lg: 1.25rem; --cds-pad-xl: 2rem;
+  --cds-radius: 10px; --cds-dur-slow: .4s; --cds-ease-out: cubic-bezier(.2,.8,.2,1);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #1b1b1a; --color-panel: #242423; --color-fg: #ecebe7; --color-fg-muted: #a3a19b;
+    --color-border-line: #3a3936; --cds-chart-muted: #5d5b56; --cds-chart-grid: #33322f; --cds-chart-axis: #6e6c66;
+    --cds-chart-reference: #8b8880; --cds-surface-popover: #2c2c2a; --cds-border: #3a3936; --cds-text-secondary: #a3a19b;
+    --cds-shadow-popover: 0 4px 16px rgba(0,0,0,.5);
+  }
+}
+body { margin: 0; background: var(--color-bg); color: var(--color-fg); font-family: var(--font-anthropic-sans); }
+#dash-root { max-width: 80rem; margin: 0 auto; padding: 1.5rem clamp(1rem, 3vw, 2.5rem) 3rem; }
+.dash-skeleton { position: relative; color: transparent !important; }
+.dash-skeleton::after { content: ""; position: absolute; inset: 0; border-radius: 6px; background: var(--cds-chart-grid); }
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+</head>
+<body>
+<div id="dash-root">
+<script src="dash-shim.js"></script>
+<style>
+.cx { font-family: var(--font-anthropic-sans); display: flex; flex-direction: column; gap: var(--cds-gap-xl); font-variant-numeric: tabular-nums; }
+.cx-head h1 { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: var(--cds-font-size-title); margin: 0; }
+.cx-take { color: var(--color-fg-muted); margin: var(--cds-gap-xs) 0 0; font-size: var(--cds-font-size-body); max-width: 60rem; }
+.cx .cx-take b, .cx .cx-card b { font-weight: var(--cds-font-weight-medium); color: var(--color-fg); }
+.cx-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr)); gap: var(--cds-gap-md); }
+.cx-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 24rem), 1fr)); gap: var(--cds-gap-md); }
+.cx-card { background: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: var(--cds-pad-lg); min-width: 0; }
+.cx-card h2 { font-size: var(--cds-font-size-heading); font-weight: var(--cds-font-weight-medium); margin: 0; }
+.cx-note { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); margin: var(--cds-gap-xs) 0 var(--cds-gap-md); }
+.cx-section h2.cx-sec { font-size: var(--cds-font-size-heading); font-weight: var(--cds-font-weight-medium); margin: 0 0 var(--cds-gap-sm); }
+.cx-kpi .lbl { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+.cx-kpi .val { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: var(--cds-font-size-title); line-height: 1.2; margin: var(--cds-gap-xs) 0; display: inline-block; min-width: 4ch; }
+.cx-kpi .sub { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+.cx-chart { position: relative; }
+.cx-legend { display: flex; gap: var(--cds-gap-md); font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); margin-bottom: var(--cds-gap-sm); flex-wrap: wrap; }
+.cx-legend i { display: inline-block; width: .625rem; height: .625rem; border-radius: 2px; margin-right: .3rem; vertical-align: -1px; }
+.cx-chart svg text { fill: var(--color-fg-muted); font-size: var(--cds-font-size-caption); font-family: var(--font-anthropic-sans); }
+.cx-tip { position: absolute; pointer-events: none; background: var(--cds-surface-popover); border: 1px solid var(--cds-border); border-radius: var(--cds-radius); box-shadow: var(--cds-shadow-popover); padding: var(--cds-pad-xs) var(--cds-pad-sm); font-size: var(--cds-font-size-caption); white-space: nowrap; display: none; z-index: 2; }
+.cx-tip .t { color: var(--cds-text-secondary); margin-bottom: 2px; }
+.cx-tip i { display: inline-block; width: .5rem; height: .5rem; border-radius: 2px; margin-right: .3rem; }
+.cx-tip span.v { margin-left: .75rem; float: right; }
+.cx-bars { display: grid; grid-template-columns: minmax(7rem, max-content) 1fr auto; gap: var(--cds-gap-sm) var(--cds-gap-md); align-items: center; font-size: var(--cds-font-size-body); }
+.cx-bars .nm small { display: block; font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+.cx-bars .track { height: 1rem; }
+.cx-bars .fill { height: 100%; border-radius: 4px; min-width: 2px; }
+.cx-bars .n { text-align: right; font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+.cx-bars .n b { font-size: var(--cds-font-size-body); }
+.cx-tbl-box { max-height: 26rem; overflow: auto; }
+.cx-table { width: 100%; border-collapse: collapse; font-size: var(--cds-font-size-body); }
+.cx-table th { position: sticky; top: 0; background: var(--color-panel); text-align: left; font-weight: var(--cds-font-weight-medium); font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); padding: var(--cds-pad-xs) var(--cds-pad-sm); border-bottom: 1px solid var(--color-border-line); z-index: 1; }
+.cx-table th button { all: unset; cursor: pointer; }
+.cx-table th[aria-sort=ascending] button::after { content: " ↑"; }
+.cx-table th[aria-sort=descending] button::after { content: " ↓"; }
+.cx-table td { padding: var(--cds-pad-xs) var(--cds-pad-sm); border-bottom: 1px solid var(--color-border-line); }
+.cx-table .num { text-align: right; }
+.cx-table .barcell { display: flex; align-items: center; gap: var(--cds-gap-sm); justify-content: flex-end; }
+.cx-table .barcell span.b { height: .5rem; border-radius: 4px; background: var(--cds-chart-muted); display: inline-block; }
+.cx-search { width: 100%; box-sizing: border-box; font: inherit; font-size: var(--cds-font-size-body); padding: var(--cds-pad-xs) var(--cds-pad-sm); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); background: var(--color-bg); color: var(--color-fg); margin-bottom: var(--cds-gap-sm); }
+.cx-fail { display: flex; align-items: center; justify-content: center; gap: var(--cds-gap-sm); min-height: inherit; height: 100%; color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); }
+.cx-fail::before { content: ""; width: .375rem; height: .375rem; border-radius: 50%; background: var(--color-bad); }
+.cx [data-dash-source-state=empty] { color: transparent; }
+.cx [data-dash-source-state=refreshing] { opacity: .5; transition: opacity var(--cds-dur-slow); }
+.cx-replay-top { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--cds-gap-md); flex-wrap: wrap; margin-bottom: var(--cds-gap-sm); }
+.cx-replay-clock { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: var(--cds-font-size-title); }
+.cx-replay-clock small { display: block; font-family: var(--font-anthropic-sans); font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+.cx-ctrls { display: flex; gap: var(--cds-gap-sm); align-items: center; font-size: var(--cds-font-size-caption); }
+.cx-ctrls button, .cx-ctrls select { font: inherit; font-size: var(--cds-font-size-body); padding: var(--cds-pad-xs) var(--cds-pad-sm); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); background: var(--color-bg); color: var(--color-fg); cursor: pointer; }
+.cx-replay-legend { display: flex; flex-wrap: wrap; gap: var(--cds-gap-xs) var(--cds-gap-lg); font-size: var(--cds-font-size-body); margin-bottom: var(--cds-gap-sm); min-height: 1.5em; }
+.cx-replay-legend i { display: inline-block; width: .625rem; height: .625rem; border-radius: 50%; margin-right: .35rem; }
+.cx-replay-legend .t { color: var(--color-fg-muted); margin-left: .4rem; }
+.cx-chart svg text.cx-place { fill: var(--color-fg); }
+.cx-chart svg text.cx-place.end { font-weight: var(--cds-font-weight-medium); }
+.cx-chart svg text.cx-sea { font-style: italic; }
+.cx-chart svg text.cx-runner { fill: var(--color-fg); font-size: var(--cds-font-size-body); }
+.cx-chart svg text.cx-runner tspan.t { fill: var(--color-fg-muted); }
+@media (max-width: 40rem) { .cx-table .wide { display: none; } }
+</style>
+
+<div class="cx">
+  <header class="cx-head" id="overview">
+    <h1>Comrades Marathon 2025 results</h1>
+    <p class="cx-take" id="cx-take">
+      <b data-source="summary" data-field="finishers" data-row="0">—</b> of
+      <b data-source="summary" data-field="starters" data-row="0">—</b> starters
+      (<b data-source="summary" data-field="finish_rate" data-row="0">—</b>) reached Durban inside the 12-hour cut-off.
+      <b data-source="leaders" data-field="name" data-where="gender=Male&amp;gen_pos=1">—</b> and
+      <b data-source="leaders" data-field="name" data-where="gender=Female&amp;gen_pos=1">—</b> won the men's and women's races.
+    </p>
+  </header>
+
+  <section class="cx-kpis" id="headline">
+    <div class="cx-card cx-kpi">
+      <div class="lbl">Official finishers</div>
+      <div class="val dash-skeleton" data-source="summary" data-field="finishers" data-row="0">—</div>
+      <div class="sub">of <span data-source="summary" data-field="entrants" data-row="0">—</span> entrants</div>
+    </div>
+    <div class="cx-card cx-kpi">
+      <div class="lbl">Finish rate</div>
+      <div class="val dash-skeleton" data-source="summary" data-field="finish_rate" data-row="0">—</div>
+      <div class="sub">of runners who started</div>
+    </div>
+    <div class="cx-card cx-kpi">
+      <div class="lbl">Men's winning time</div>
+      <div class="val dash-skeleton" data-source="leaders" data-field="time" data-where="gender=Male&amp;gen_pos=1">—</div>
+      <div class="sub" data-source="leaders" data-field="name" data-where="gender=Male&amp;gen_pos=1">—</div>
+    </div>
+    <div class="cx-card cx-kpi">
+      <div class="lbl">Women's winning time</div>
+      <div class="val dash-skeleton" data-source="leaders" data-field="time" data-where="gender=Female&amp;gen_pos=1">—</div>
+      <div class="sub" data-source="leaders" data-field="name" data-where="gender=Female&amp;gen_pos=1">—</div>
+    </div>
+    <div class="cx-card cx-kpi">
+      <div class="lbl">Median finish time</div>
+      <div class="val dash-skeleton" data-source="summary" data-field="median_time" data-row="0">—</div>
+      <div class="sub">gun time, official finishers</div>
+    </div>
+    <div class="cx-card cx-kpi">
+      <div class="lbl">Countries</div>
+      <div class="val dash-skeleton" data-source="summary" data-field="countries" data-row="0">—</div>
+      <div class="sub">with at least one starter</div>
+    </div>
+  </section>
+
+  <section class="cx-section" id="race-replay">
+    <div class="cx-card">
+      <h2>Race replay: the winners</h2>
+      <p class="cx-note">The men's and women's winners on the 2025 down-run route from Pietermaritzburg to Durban, sped up. The route is a runner's Strava recording (<span data-source="route" data-field="km" id="cx-route-km">—</span> km by GPS, which reads a little long). Only finish times are in the results, so each dot moves at an even pace.</p>
+      <div class="cx-replay-top">
+        <div class="cx-replay-clock"><small>Race clock</small><span id="cx-replay-clock">00:00:00</span></div>
+        <div class="cx-ctrls">
+          <button id="cx-replay-play" type="button">Play</button>
+          <button id="cx-replay-reset" type="button">Restart</button>
+          <select id="cx-replay-speed" aria-label="Replay speed">
+            <option value="600">1 s = 10 min</option>
+            <option value="1200" selected>1 s = 20 min</option>
+            <option value="3600">1 s = 1 hour</option>
+          </select>
+        </div>
+      </div>
+      <div class="cx-replay-legend" id="cx-replay-legend" data-source="leaders"></div>
+      <div class="cx-chart dash-skeleton" id="cx-replay-map" data-source="route coast places leaders" style="min-height:260px"></div>
+      <div class="cx-chart dash-skeleton" id="cx-replay-profile" data-source="route leaders" style="min-height:130px; margin-top: var(--cds-gap-sm)"></div>
+    </div>
+  </section>
+
+  <section class="cx-section" id="finish-times">
+    <div class="cx-card">
+      <h2>When runners finished</h2>
+      <p class="cx-note">Official finishers per 10 minutes of gun time. Dashed lines are the medal cut-offs; the big spikes sit just before them.</p>
+      <div class="cx-legend"><span><i id="cx-lg-m"></i>Men</span><span><i id="cx-lg-w"></i>Women</span></div>
+      <div class="cx-chart dash-skeleton" id="cx-hist" data-source="time_bins" style="min-height:300px"></div>
+    </div>
+  </section>
+
+  <section class="cx-grid" id="outcomes">
+    <div class="cx-card">
+      <h2 id="medals-title">Medals won</h2>
+      <p class="cx-note">Official finishers by medal, from gun time and finishing position.</p>
+      <div class="cx-bars dash-skeleton" id="cx-medals" data-source="medals" style="min-height:300px"></div>
+    </div>
+    <div class="cx-card">
+      <h2 id="status-title">Every entrant's outcome</h2>
+      <p class="cx-note">Unofficial finishers crossed the line after the 12-hour cut-off and get no medal.</p>
+      <div class="cx-bars dash-skeleton" id="cx-status" data-source="status" style="min-height:200px"></div>
+    </div>
+  </section>
+
+  <section class="cx-grid" id="who-ran">
+    <div class="cx-card">
+      <h2>By gender and age</h2>
+      <p class="cx-note">Finish rate is official finishers over starters; median is the middle finisher's gun time.</p>
+      <div class="cx-tbl-box">
+        <table class="cx-table" id="cx-groups" data-source="groups" data-row-key="group">
+          <thead><tr>
+            <th data-field="group" data-source="groups">Group</th>
+            <th data-field="starters" data-source="groups" class="num">Starters</th>
+            <th data-field="finishers" data-source="groups" class="num">Finishers</th>
+            <th data-field="finish_rate" data-source="groups" class="num">Finish rate</th>
+            <th data-field="median_time" data-source="groups" class="num">Median</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="cx-card">
+      <h2>By country</h2>
+      <p class="cx-note">Every country with a starter. Click a header to sort.</p>
+      <input class="cx-search" id="cx-country-q" type="search" placeholder="Search countries" aria-label="Search countries">
+      <div class="cx-tbl-box">
+        <table class="cx-table" id="cx-countries" data-source="countries" data-row-key="country">
+          <thead><tr>
+            <th data-field="country" data-source="countries"><button>Country</button></th>
+            <th data-field="starters" data-source="countries" class="num wide"><button>Starters</button></th>
+            <th data-field="finishers" data-source="countries" class="num"><button>Finishers</button></th>
+            <th data-field="finish_rate" data-source="countries" class="num"><button>Finish rate</button></th>
+            <th data-field="median_time" data-source="countries" class="num wide"><button>Median</button></th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="cx-grid" id="top-ten">
+    <div class="cx-card">
+      <h2>Top 10 men</h2>
+      <p class="cx-note">Gold medallists, by gun time.</p>
+      <table class="cx-table" id="cx-top-men" data-source="leaders" data-row-key="gender,gen_pos">
+        <thead><tr>
+          <th data-field="gen_pos">#</th><th data-field="name">Runner</th><th data-field="time" class="num">Time</th><th data-field="country" class="wide">Country</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="cx-card">
+      <h2>Top 10 women</h2>
+      <p class="cx-note">Gold medallists, by gun time.</p>
+      <table class="cx-table" id="cx-top-women" data-source="leaders" data-row-key="gender,gen_pos">
+        <thead><tr>
+          <th data-field="gen_pos">#</th><th data-field="name">Runner</th><th data-field="time" class="num">Time</th><th data-field="country" class="wide">Country</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<script>
+// Shared helpers for every script on the page.
+window.cx = {
+  int: d3.format(','),
+  pct: d3.format('.1%'),
+  hm: (s) => `${Math.floor(s / 3600)}:${String(Math.floor((s % 3600) / 60)).padStart(2, '0')}`,
+  // True when every source is ok; otherwise shows a skeleton or a failed line.
+  ready(el, ...ds) {
+    if (ds.every((d) => d.status === 'ok')) { el.classList.remove('dash-skeleton'); return true; }
+    const failed = ds.some((d) => d.status !== 'ok' && d.status !== 'loading');
+    el.replaceChildren();
+    el.classList.toggle('dash-skeleton', !failed);
+    if (failed) { const f = document.createElement('div'); f.className = 'cx-fail'; f.textContent = 'Failed to load'; el.appendChild(f); }
+    return false;
+  },
+  text(el, ok, value) {
+    el.textContent = ok ? value : '—';
+    el.classList.toggle('dash-skeleton', !ok);
+  },
+  tip(box) {
+    const t = document.createElement('div'); t.className = 'cx-tip'; box.appendChild(t);
+    return {
+      show(x, y, title, lines) {
+        t.replaceChildren();
+        const h = document.createElement('div'); h.className = 't'; h.textContent = title; t.appendChild(h);
+        lines.forEach((l) => {
+          const r = document.createElement('div');
+          if (l.color) { const i = document.createElement('i'); i.style.background = l.color; r.appendChild(i); }
+          r.appendChild(document.createTextNode(l.name));
+          const v = document.createElement('span'); v.className = 'v'; v.textContent = l.value; r.appendChild(v);
+          t.appendChild(r);
+        });
+        t.style.display = 'block';
+        const W = box.clientWidth, tw = t.offsetWidth, th = t.offsetHeight;
+        t.style.left = `${Math.max(0, Math.min(W - tw, x + 12))}px`;
+        t.style.top = `${Math.max(0, y - th - 8)}px`;
+      },
+      hide() { t.style.display = 'none'; },
+    };
+  },
+  bars(el, rows, { label, sub, value, color, note }) {
+    const max = d3.max(rows, value) || 1;
+    el.replaceChildren(...rows.flatMap((r, i) => {
+      const nm = document.createElement('div'); nm.className = 'nm'; nm.textContent = label(r);
+      if (sub) { const s = document.createElement('small'); s.textContent = sub(r); nm.appendChild(s); }
+      const track = document.createElement('div'); track.className = 'track';
+      const fill = document.createElement('div'); fill.className = 'fill';
+      fill.style.width = `${(100 * value(r)) / max}%`; fill.style.background = color(r, i);
+      track.appendChild(fill);
+      const n = document.createElement('div'); n.className = 'n';
+      const b = document.createElement('b'); b.textContent = cx.int(value(r)); n.appendChild(b);
+      if (note) n.appendChild(document.createTextNode(` ${note(r)}`));
+      return [nm, track, n];
+    }));
+  },
+};
+</script>
+
+<script>
+// Calculations over the per-runner results file.
+dash.calc('summary', {
+  inputs: ['runners'],
+  title: 'Race totals',
+  description: 'Entrants, starters, official finishers (inside 12 hours), finish rate, median finish gun time and countries represented.',
+  fn: (runners) => {
+    const starters = runners.filter((r) => r.status !== 'Did not start');
+    const t = runners.filter((r) => r.status === 'Finished').map((r) => +r.time_s).sort((a, b) => a - b);
+    const mid = Math.round((t[(t.length - 1) >> 1] + t[t.length >> 1]) / 2);
+    return [{
+      entrants: runners.length,
+      starters: starters.length,
+      finishers: t.length,
+      finish_rate: t.length / starters.length,
+      median_time: new Date(mid * 1000).toISOString().slice(11, 19),
+      countries: new Set(starters.map((r) => r.country)).size,
+    }];
+  },
+});
+
+dash.calc('status', {
+  inputs: ['runners'],
+  title: 'Entrants by outcome',
+  description: 'Every entrant counted by result status.',
+  fn: (runners) => ['Finished', 'Unofficial finisher', 'Did not finish', 'Started - no result', 'Did not start']
+    .map((status) => {
+      const n = runners.filter((r) => r.status === status).length;
+      return { status, runners: n, share: n / runners.length };
+    }),
+});
+
+dash.calc('medals', {
+  inputs: ['runners'],
+  title: 'Medals won',
+  description: 'Official finishers by 2025 medal: top 10 per gender gold, then by gun time.',
+  fn: (runners) => {
+    const medals = [
+      ['Gold', 'Top 10 men and women'],
+      ['Wally Hayward', 'Men under 6:00'],
+      ['Isavel Roche-Kelly', 'Women under 7:30'],
+      ['Silver', 'Men 6:00 to 7:30'],
+      ['Bill Rowan', '7:30 to 9:00'],
+      ['Robert Mtshali', '9:00 to 10:00'],
+      ['Bronze', '10:00 to 11:00'],
+      ['Vic Clapham', '11:00 to 12:00'],
+    ];
+    const medalOf = (r) => {
+      const t = +r.time_s;
+      if (+r.gen_pos <= 10) return 'Gold';
+      if (r.gender === 'Male' && t < 6 * 3600) return 'Wally Hayward';
+      if (r.gender === 'Female' && t < 7.5 * 3600) return 'Isavel Roche-Kelly';
+      if (t < 7.5 * 3600) return 'Silver';
+      if (t < 9 * 3600) return 'Bill Rowan';
+      if (t < 10 * 3600) return 'Robert Mtshali';
+      if (t < 11 * 3600) return 'Bronze';
+      return 'Vic Clapham';
+    };
+    const fin = runners.filter((r) => r.status === 'Finished').map(medalOf);
+    return medals.map(([medal, window]) => ({ medal, window, finishers: fin.filter((m) => m === medal).length }));
+  },
+});
+
+dash.calc('time_bins', {
+  inputs: ['runners'],
+  title: 'Finishers per 10 minutes',
+  description: 'Official finishers in 10-minute bins of gun time, split by gender.',
+  fn: (runners) => {
+    const fin = runners.filter((r) => r.status === 'Finished');
+    const first = Math.floor(Math.min(...fin.map((r) => +r.time_s)) / 600) * 600;
+    const rows = [];
+    for (let s = first; s < 12 * 3600; s += 600) {
+      rows.push({ bin: new Date(s * 1000).toISOString().slice(11, 16), start_s: s, men: 0, women: 0 });
+    }
+    fin.forEach((r) => {
+      const i = Math.min(rows.length - 1, Math.floor((+r.time_s - first) / 600));
+      rows[i][r.gender === 'Female' ? 'women' : 'men'] += 1;
+    });
+    return rows;
+  },
+});
+
+dash.calc('groups', {
+  inputs: ['runners'],
+  title: 'Results by gender and age',
+  description: 'Starters, official finishers, finish rate and median gun time for each gender and age category.',
+  fn: (runners) => {
+    const groups = [
+      ['Men', (r) => r.gender === 'Male'],
+      ['Women', (r) => r.gender === 'Female'],
+      ['Senior (20-39)', (r) => r.category === 'Senior'],
+      ['40-49', (r) => r.category === '40-49'],
+      ['50-59', (r) => r.category === '50-59'],
+      ['60-69', (r) => r.category === '60-69'],
+      ['70+', (r) => r.category === '70+'],
+    ];
+    return groups.map(([group, test]) => {
+      const s = runners.filter((r) => test(r) && r.status !== 'Did not start');
+      const t = s.filter((r) => r.status === 'Finished').map((r) => +r.time_s).sort((a, b) => a - b);
+      const mid = Math.round((t[(t.length - 1) >> 1] + t[t.length >> 1]) / 2);
+      return {
+        group,
+        starters: s.length,
+        finishers: t.length,
+        finish_rate: t.length / s.length,
+        median_time: t.length ? new Date(mid * 1000).toISOString().slice(11, 19) : '',
+      };
+    });
+  },
+});
+
+dash.calc('countries', {
+  inputs: ['runners'],
+  title: 'Results by country',
+  description: 'Starters, official finishers, finish rate and median gun time for each country.',
+  fn: (runners) => {
+    const by = new Map();
+    runners.filter((r) => r.status !== 'Did not start').forEach((r) => {
+      if (!by.has(r.country)) by.set(r.country, []);
+      by.get(r.country).push(r);
+    });
+    return [...by].map(([country, s]) => {
+      const t = s.filter((r) => r.status === 'Finished').map((r) => +r.time_s).sort((a, b) => a - b);
+      const mid = Math.round((t[(t.length - 1) >> 1] + t[t.length >> 1]) / 2);
+      return {
+        country,
+        starters: s.length,
+        finishers: t.length,
+        finish_rate: t.length / s.length,
+        median_time: t.length ? new Date(mid * 1000).toISOString().slice(11, 19) : '',
+      };
+    }).sort((a, b) => b.finishers - a.finishers);
+  },
+});
+</script>
+
+<script>
+// Header sentence and headline figures.
+dash.onData(() => {
+  const s = dash.data('summary'), l = dash.data('leaders');
+  const sum = s.status === 'ok' ? s.data[0] : null;
+  const fmt = { finishers: cx.int, starters: cx.int, entrants: cx.int, countries: cx.int, finish_rate: cx.pct, median_time: (v) => v };
+  document.querySelectorAll('.cx [data-source="summary"]').forEach((el) => {
+    const f = el.dataset.field;
+    cx.text(el, !!sum, sum ? fmt[f](sum[f]) : '');
+  });
+  document.querySelectorAll('.cx-head [data-source="leaders"], .cx-kpis [data-source="leaders"]').forEach((el) => {
+    const w = new URLSearchParams(el.dataset.where);
+    const row = l.status === 'ok' ? l.data.find((r) => r.gender === w.get('gender') && r.gen_pos === w.get('gen_pos')) : null;
+    cx.text(el, !!row, row ? row[el.dataset.field] : '');
+  });
+});
+</script>
+
+<script>
+// Finish-time histogram with medal cut-offs.
+(() => {
+  const el = document.getElementById('cx-hist');
+  const cuts = [[6, '6:00'], [7.5, '7:30'], [9, '9:00'], [10, '10:00'], [11, '11:00']];
+  document.getElementById('cx-lg-m').style.background = dash.colors[0];
+  document.getElementById('cx-lg-w').style.background = dash.colors[1];
+  dash.onData(() => {
+    const d = dash.data('time_bins');
+    if (!cx.ready(el, d)) return;
+    const rows = d.data;
+    el.replaceChildren();
+    const W = el.clientWidth, H = 300, mt = 18, mb = 24, mr = 8;
+    const svg = d3.select(el).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('height', H);
+    const y = d3.scaleLinear([0, d3.max(rows, (r) => r.men + r.women)], [H - mb, mt]).nice();
+    const yt = y.ticks(5);
+    const probe = svg.append('text').text(cx.int(yt[yt.length - 1]));
+    const ml = Math.ceil(probe.node().getComputedTextLength()) + 10;
+    probe.remove();
+    const x = d3.scaleBand(rows.map((r) => r.start_s), [ml, W - mr]).paddingInner(0.15);
+    const gap = x.step() * 0.15;
+    svg.append('g').selectAll('line').data(yt).join('line')
+      .attr('x1', ml).attr('x2', W - mr).attr('y1', y).attr('y2', y)
+      .attr('stroke', 'var(--cds-chart-grid)');
+    svg.append('g').selectAll('text').data(yt).join('text')
+      .attr('x', ml - 6).attr('y', y).attr('dy', '0.32em').attr('text-anchor', 'end').text(cx.int);
+    const ticks = rows.filter((r) => r.start_s % 3600 === 0);
+    svg.append('g').selectAll('text').data(ticks).join('text')
+      .attr('x', (r) => x(r.start_s) - gap / 2).attr('y', H - 6).attr('text-anchor', 'middle').text((r) => cx.hm(r.start_s));
+    const bars = svg.append('g');
+    const men = bars.selectAll('.m').data(rows).join('rect').attr('class', 'm')
+      .attr('x', (r) => x(r.start_s)).attr('width', x.bandwidth())
+      .attr('y', (r) => y(r.men)).attr('height', (r) => y(0) - y(r.men)).attr('fill', dash.colors[0]);
+    const women = bars.selectAll('.w').data(rows).join('rect').attr('class', 'w')
+      .attr('x', (r) => x(r.start_s)).attr('width', x.bandwidth())
+      .attr('y', (r) => y(r.men + r.women)).attr('height', (r) => y(r.men) - y(r.men + r.women)).attr('fill', dash.colors[1]);
+    svg.append('line').attr('x1', ml).attr('x2', W - mr).attr('y1', y(0)).attr('y2', y(0)).attr('stroke', 'var(--cds-chart-axis)');
+    // Medal cut-offs, labels dropped where they would collide.
+    let lastX = -Infinity;
+    cuts.forEach(([h, label]) => {
+      const cx0 = x(h * 3600);
+      if (cx0 === undefined) return;
+      const px = cx0 - gap / 2;
+      svg.append('line').attr('x1', px).attr('x2', px).attr('y1', mt).attr('y2', y(0))
+        .attr('stroke', 'var(--cds-chart-reference)').attr('stroke-dasharray', '4 3');
+      if (px - lastX > 36) {
+        svg.append('text').attr('x', px).attr('y', mt - 6).attr('text-anchor', 'middle').text(label);
+        lastX = px;
+      }
+    });
+    const tip = cx.tip(el);
+    svg.append('g').selectAll('rect').data(rows).join('rect')
+      .attr('x', (r) => x(r.start_s) - gap / 2).attr('width', x.step()).attr('y', mt).attr('height', y(0) - mt)
+      .attr('fill', 'transparent')
+      .on('pointermove', (ev, r) => {
+        men.attr('opacity', (o) => (o === r ? 1 : 0.45));
+        women.attr('opacity', (o) => (o === r ? 1 : 0.45));
+        const [px, py] = d3.pointer(ev, el);
+        tip.show(px, py, `${cx.hm(r.start_s)} to ${cx.hm(r.start_s + 600)}`, [
+          { color: dash.colors[0], name: 'Men', value: cx.int(r.men) },
+          { color: dash.colors[1], name: 'Women', value: cx.int(r.women) },
+        ]);
+      })
+      .on('pointerleave', () => { men.attr('opacity', 1); women.attr('opacity', 1); tip.hide(); });
+  });
+})();
+</script>
+
+<script>
+// Medal and outcome bars.
+(() => {
+  const medals = document.getElementById('cx-medals');
+  const status = document.getElementById('cx-status');
+  dash.onData(() => {
+    const m = dash.data('medals');
+    if (cx.ready(medals, m)) {
+      cx.bars(medals, m.data, { label: (r) => r.medal, sub: (r) => r.window, value: (r) => r.finishers, color: () => dash.colors[0] });
+    }
+    const s = dash.data('status');
+    if (cx.ready(status, s)) {
+      cx.bars(status, s.data, {
+        label: (r) => r.status, value: (r) => r.runners, note: (r) => cx.pct(r.share),
+        color: (r) => (r.status === 'Finished' ? dash.colors[0] : 'var(--cds-chart-muted)'),
+      });
+    }
+  });
+})();
+</script>
+
+<script>
+// Gender/age table, sortable country table and the top-10 tables.
+(() => {
+  const cell = (tr, text, cls) => { const td = document.createElement('td'); if (cls) td.className = cls; td.textContent = text; tr.appendChild(td); return td; };
+  const failRow = (tbody, cols, failed) => {
+    tbody.replaceChildren();
+    const tr = document.createElement('tr'), td = document.createElement('td');
+    td.colSpan = cols; td.style.height = '8rem';
+    const f = document.createElement('div');
+    if (failed) { f.className = 'cx-fail'; f.textContent = 'Failed to load'; } else { f.className = 'dash-skeleton'; f.style.height = '100%'; }
+    td.appendChild(f); tr.appendChild(td); tbody.appendChild(tr);
+  };
+  const okOr = (d, tbody, cols) => { if (d.status === 'ok') return true; failRow(tbody, cols, d.status !== 'loading'); return false; };
+
+  const groups = document.getElementById('cx-groups');
+  const countries = document.getElementById('cx-countries');
+  const q = document.getElementById('cx-country-q');
+  const sort = { field: 'finishers', dir: -1 };
+
+  const drawCountries = () => {
+    const d = dash.data('countries'), tbody = countries.tBodies[0];
+    if (!okOr(d, tbody, 5)) return;
+    const max = d3.max(d.data, (r) => r.finishers) || 1;
+    const term = q.value.trim().toLowerCase();
+    const rows = d.data.filter((r) => !term || r.country.toLowerCase().includes(term)).slice()
+      .sort((a, b) => {
+        const va = a[sort.field], vb = b[sort.field];
+        if (va === vb) return 0;
+        if (va === '') return 1;
+        if (vb === '') return -1;
+        return (va < vb ? -1 : 1) * sort.dir;
+      });
+    tbody.replaceChildren(...rows.map((r) => {
+      const tr = document.createElement('tr'); tr.dataset.key = r.country;
+      cell(tr, r.country);
+      cell(tr, cx.int(r.starters), 'num wide');
+      const td = cell(tr, '', 'num');
+      const bc = document.createElement('div'); bc.className = 'barcell';
+      const b = document.createElement('span'); b.className = 'b'; b.style.width = `${Math.max(1, (48 * r.finishers) / max)}px`;
+      const v = document.createElement('span'); v.textContent = cx.int(r.finishers);
+      bc.append(b, v); td.appendChild(bc);
+      cell(tr, cx.pct(r.finish_rate), 'num');
+      cell(tr, r.median_time, 'num wide');
+      return tr;
+    }));
+    countries.querySelectorAll('th').forEach((th) => {
+      th.setAttribute('aria-sort', th.dataset.field === sort.field ? (sort.dir > 0 ? 'ascending' : 'descending') : 'none');
+    });
+  };
+  countries.querySelectorAll('th').forEach((th) => th.querySelector('button').addEventListener('click', () => {
+    const f = th.dataset.field;
+    if (sort.field === f) sort.dir = -sort.dir; else { sort.field = f; sort.dir = f === 'country' || f === 'median_time' ? 1 : -1; }
+    drawCountries();
+  }));
+  q.addEventListener('input', drawCountries);
+
+  const top = (table, gender) => {
+    const d = dash.data('leaders'), tbody = table.tBodies[0];
+    if (!okOr(d, tbody, 4)) return;
+    tbody.replaceChildren(...d.data.filter((r) => r.gender === gender).map((r) => {
+      const tr = document.createElement('tr'); tr.dataset.key = `${encodeURIComponent(r.gender)},${encodeURIComponent(r.gen_pos)}`;
+      cell(tr, r.gen_pos); cell(tr, r.name); cell(tr, r.time, 'num'); cell(tr, r.country, 'wide');
+      return tr;
+    }));
+  };
+
+  dash.onData(() => {
+    const g = dash.data('groups'), tbody = groups.tBodies[0];
+    if (okOr(g, tbody, 5)) {
+      tbody.replaceChildren(...g.data.map((r) => {
+        const tr = document.createElement('tr'); tr.dataset.key = r.group;
+        cell(tr, r.group); cell(tr, cx.int(r.starters), 'num'); cell(tr, cx.int(r.finishers), 'num');
+        cell(tr, cx.pct(r.finish_rate), 'num'); cell(tr, r.median_time, 'num');
+        return tr;
+      }));
+    }
+    drawCountries();
+    top(document.getElementById('cx-top-men'), 'Male');
+    top(document.getElementById('cx-top-women'), 'Female');
+  });
+})();
+</script>
+
+<script>
+// Accelerated replay of the two winners on the route map and elevation profile, assuming an even pace.
+(() => {
+  const map = document.getElementById('cx-replay-map');
+  const prof = document.getElementById('cx-replay-profile');
+  const legend = document.getElementById('cx-replay-legend');
+  const routeKm = document.getElementById('cx-route-km');
+  const clock = document.getElementById('cx-replay-clock');
+  const playBtn = document.getElementById('cx-replay-play');
+  const speed = document.getElementById('cx-replay-speed');
+  const fmt = (s) => new Date(Math.round(s) * 1000).toISOString().slice(11, 19);
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const st = { t: 0, playing: false, last: null, runners: [], started: false };
+  let draw = () => {};
+  const end = () => d3.max(st.runners, (r) => r.s) || 0;
+  const setBtn = () => { playBtn.textContent = st.playing ? 'Pause' : (st.t > 0 && st.t >= end() ? 'Replay' : 'Play'); };
+  const tick = (now) => {
+    if (!st.playing) return;
+    if (st.last !== null) st.t += ((now - st.last) / 1000) * +speed.value;
+    st.last = now;
+    if (st.t >= end()) { st.t = end(); st.playing = false; }
+    draw();
+    if (st.playing) requestAnimationFrame(tick); else setBtn();
+  };
+  const play = () => { st.playing = true; st.last = null; requestAnimationFrame(tick); setBtn(); };
+  playBtn.addEventListener('click', () => {
+    if (st.playing) { st.playing = false; setBtn(); return; }
+    if (st.t >= end()) st.t = 0;
+    play();
+  });
+  document.getElementById('cx-replay-reset').addEventListener('click', () => { st.t = 0; draw(); play(); });
+
+  // Point on the route at a given distance, interpolated between the 100 m samples.
+  const byKm = d3.bisector((r) => r.km).left;
+  const at = (route, km) => {
+    const i = byKm(route, km);
+    if (i <= 0) return route[0];
+    if (i >= route.length) return route[route.length - 1];
+    const a = route[i - 1], b = route[i], f = (km - a.km) / ((b.km - a.km) || 1);
+    return { km, lat: a.lat + f * (b.lat - a.lat), lon: a.lon + f * (b.lon - a.lon), ele: a.ele + f * (b.ele - a.ele) };
+  };
+
+  dash.onData(() => {
+    const L = dash.data('leaders'), R = dash.data('route'), C = dash.data('coast'), P = dash.data('places');
+    const ok = [cx.ready(map, L, R, C, P), cx.ready(prof, L, R)].every(Boolean);
+    if (!ok) {
+      st.playing = false; draw = () => {}; legend.replaceChildren();
+      clock.textContent = '00:00:00'; cx.text(routeKm, false, ''); setBtn();
+      return;
+    }
+    const route = R.data.map((r) => ({ km: +r.km, lat: +r.lat, lon: +r.lon, ele: +r.ele }));
+    const total = route[route.length - 1].km;
+    routeKm.dataset.row = String(route.length - 1);
+    cx.text(routeKm, true, total.toFixed(1));
+    st.runners = ['Male', 'Female']
+      .map((g) => L.data.find((r) => r.gender === g && r.gen_pos === '1'))
+      .filter(Boolean)
+      .map((r, i) => ({ ...r, s: +r.time_s, color: dash.colors[i] }));
+
+    // Live legend: who, elapsed or finish time, distance covered.
+    const legendRows = st.runners.map((r) => {
+      const row = document.createElement('span');
+      const sw = document.createElement('i'); sw.style.background = r.color;
+      const t = document.createElement('span'); t.className = 't';
+      row.append(sw, document.createTextNode(r.name), t);
+      return t;
+    });
+    legend.replaceChildren(...legendRows.map((t) => t.parentNode));
+
+    // Map
+    map.replaceChildren();
+    const W = map.clientWidth, H = Math.round(Math.max(260, Math.min(460, W * 0.5)));
+    map.style.minHeight = `${H}px`;
+    // Mercator projection fitted to the route plus a little sea east of the finish.
+    const merc = (lon, lat) => [lon * Math.PI / 180, -Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI) / 360))];
+    const pts = [...route.map((r) => merc(r.lon, r.lat)), merc(31.1, -29.84)];
+    const [x0, x1] = d3.extent(pts, (q) => q[0]), [y0, y1] = d3.extent(pts, (q) => q[1]);
+    const box = [[28, 34], [W - 28, H - 30]];
+    const k = Math.min((box[1][0] - box[0][0]) / (x1 - x0), (box[1][1] - box[0][1]) / (y1 - y0));
+    const ox = (box[0][0] + box[1][0] - k * (x0 + x1)) / 2, oy = (box[0][1] + box[1][1] - k * (y0 + y1)) / 2;
+    const xy = (lon, lat) => { const [mx, my] = merc(lon, lat); return [ox + k * mx, oy + k * my]; };
+    const svg = d3.select(map).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('height', H);
+    const coast = C.data.filter((r) => +r.part === 0).map((r) => [+r.lon, +r.lat]);
+    const ocean = [...coast, [33, coast[coast.length - 1][1]], [33, coast[0][1]]].map((p) => xy(...p));
+    svg.append('path').attr('d', `${d3.line()(ocean)}Z`).attr('fill', 'var(--cds-chart-muted)').attr('fill-opacity', 0.22);
+    svg.append('path').attr('d', d3.line()(coast.map((p) => xy(...p)))).attr('fill', 'none').attr('stroke', 'var(--cds-chart-axis)');
+    const [sx, sy] = xy(31.13, -29.95);
+    if (sx < W - 10 && sy < H - 10) svg.append('text').attr('class', 'cx-sea').attr('x', Math.min(sx, W - 8)).attr('y', sy).attr('text-anchor', 'end').text('Indian Ocean');
+    const routeLine = d3.line().x((r) => xy(r.lon, r.lat)[0]).y((r) => xy(r.lon, r.lat)[1]);
+    svg.append('path').attr('d', routeLine(route)).attr('fill', 'none').attr('stroke', 'var(--cds-chart-muted)')
+      .attr('stroke-width', 5).attr('stroke-linecap', 'round').attr('stroke-linejoin', 'round');
+    const trails = st.runners.slice().reverse().map((r) => svg.append('path').attr('fill', 'none').attr('stroke', r.color)
+      .attr('stroke-width', 5).attr('stroke-linecap', 'round').attr('stroke-linejoin', 'round')).reverse();
+
+    // Place labels: start and finish first, then the rest where they don't collide.
+    const places = P.data.map((p) => ({ place: p.place, km: +p.km }));
+    const order = [places[0], places[places.length - 1], ...places.slice(1, -1)];
+    const taken = [];
+    const hit = (b) => taken.some((o) => b.x < o.x + o.width + 4 && b.x + b.width + 4 > o.x && b.y < o.y + o.height && b.y + b.height > o.y);
+    const pg = svg.append('g');
+    order.forEach((p, idx) => {
+      const pt = at(route, p.km);
+      const [x, y] = xy(pt.lon, pt.lat);
+      const isEnd = idx < 2;
+      pg.append('circle').attr('cx', x).attr('cy', y).attr('r', isEnd ? 4.5 : 3)
+        .attr('fill', 'var(--color-panel)').attr('stroke', 'var(--color-fg-muted)').attr('stroke-width', 1.5);
+      const anchor = x < W * 0.15 ? 'start' : x > W * 0.85 ? 'end' : 'middle';
+      for (const dy of [-11, 20]) {
+        const t = pg.append('text').attr('class', `cx-place${isEnd ? ' end' : ''}`).attr('x', x).attr('y', y + dy).attr('text-anchor', anchor).text(p.place);
+        const b = t.node().getBBox();
+        if (!hit(b) && b.y >= 0 && b.y + b.height <= H) { taken.push(b); return; }
+        t.remove();
+      }
+    });
+    const dots = st.runners.map((r) => svg.append('circle').attr('r', 7).attr('fill', r.color)
+      .attr('stroke', 'var(--color-panel)').attr('stroke-width', 2));
+
+    // Elevation profile
+    prof.replaceChildren();
+    const PH = 130, mb = 22, mt = 8;
+    const psvg = d3.select(prof).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${PH}`).attr('height', PH);
+    const y = d3.scaleLinear([0, d3.max(route, (r) => r.ele)], [PH - mb, mt]).nice();
+    const yt = y.ticks(3);
+    const probe = psvg.append('text').text(`${d3.max(yt)} m`);
+    const ml = Math.ceil(probe.node().getComputedTextLength()) + 10;
+    probe.remove();
+    const x = d3.scaleLinear([0, total], [ml, W - 8]);
+    psvg.append('g').selectAll('line').data(yt).join('line').attr('x1', ml).attr('x2', W - 8).attr('y1', y).attr('y2', y).attr('stroke', 'var(--cds-chart-grid)');
+    psvg.append('g').selectAll('text').data(yt).join('text').attr('x', ml - 6).attr('y', y).attr('dy', '0.32em').attr('text-anchor', 'end').text((v) => `${v} m`);
+    const xt = x.ticks(Math.max(2, Math.floor((W - ml) / 70)));
+    psvg.append('g').selectAll('text').data(xt).join('text').attr('x', x).attr('y', PH - 6).attr('text-anchor', 'middle').text((v) => `${v} km`);
+    psvg.append('path').attr('d', d3.area().x((r) => x(r.km)).y0(y(0)).y1((r) => y(r.ele))(route)).attr('fill', 'var(--cds-chart-muted)').attr('fill-opacity', 0.35);
+    psvg.append('path').attr('d', d3.line().x((r) => x(r.km)).y((r) => y(r.ele))(route)).attr('fill', 'none').attr('stroke', 'var(--cds-chart-muted)').attr('stroke-width', 1.5);
+    psvg.append('line').attr('x1', ml).attr('x2', W - 8).attr('y1', y(0)).attr('y2', y(0)).attr('stroke', 'var(--cds-chart-axis)');
+    const pdots = st.runners.map((r) => psvg.append('circle').attr('r', 5).attr('fill', r.color)
+      .attr('stroke', 'var(--color-panel)').attr('stroke-width', 1.5));
+
+    draw = () => {
+      clock.textContent = fmt(st.t);
+      st.runners.forEach((r, i) => {
+        const km = Math.min(1, st.t / r.s) * total;
+        const p = at(route, km);
+        const [mx, my] = xy(p.lon, p.lat);
+        dots[i].attr('cx', mx).attr('cy', my);
+        trails[i].attr('d', routeLine([...route.filter((q) => q.km < km), p]));
+        pdots[i].attr('cx', x(km)).attr('cy', y(p.ele));
+        legendRows[i].textContent = st.t >= r.s ? `finished in ${r.time}` : `${fmt(st.t)} · ${km.toFixed(1)} km`;
+      });
+    };
+    draw();
+    setBtn();
+    if (!st.started && !reduced) { st.started = true; play(); }
+  });
+})();
+</script>
+
+</div>
+</body>
+</html>
