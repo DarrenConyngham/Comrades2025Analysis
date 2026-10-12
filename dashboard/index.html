@@ -146,8 +146,8 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font-fami
 
   <section class="cx-section" id="race-replay">
     <div class="cx-card">
-      <h2>Race replay: the winners</h2>
-      <p class="cx-note">The men's and women's winners on the 2025 down-run route from Pietermaritzburg to Durban, sped up. The route is a runner's Strava recording (<span data-source="route" data-field="km" id="cx-route-km">—</span> km by GPS, which reads a little long). Only finish times are in the results, so each dot moves at an even pace.</p>
+      <h2 id="replay-title">Race replay: winners, median and 12-hour finishers</h2>
+      <p class="cx-note">The men's and women's winners, the median official finisher and a runner who crossed the line at exactly 12:00:00, on the 2025 down-run route from Pietermaritzburg to Durban, sped up. The route is a runner's Strava recording (<span data-source="route" data-field="km" id="cx-route-km">—</span> km by GPS, which reads a little long). Only finish times are in the results, so each dot moves at an even pace.</p>
       <div class="cx-replay-top">
         <div class="cx-replay-clock"><small>Race clock</small><span id="cx-replay-clock">00:00:00</span></div>
         <div class="cx-ctrls">
@@ -160,9 +160,9 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font-fami
           </select>
         </div>
       </div>
-      <div class="cx-replay-legend" id="cx-replay-legend" data-source="leaders"></div>
-      <div class="cx-chart dash-skeleton" id="cx-replay-map" data-source="route places leaders" style="min-height:260px"></div>
-      <div class="cx-chart dash-skeleton" id="cx-replay-profile" data-source="route leaders" style="min-height:130px; margin-top: var(--cds-gap-sm)"></div>
+      <div class="cx-replay-legend" id="cx-replay-legend" data-source="leaders replay_others"></div>
+      <div class="cx-chart dash-skeleton" id="cx-replay-map" data-source="route places leaders replay_others" style="min-height:260px"></div>
+      <div class="cx-chart dash-skeleton" id="cx-replay-profile" data-source="route leaders replay_others" style="min-height:130px; margin-top: var(--cds-gap-sm)"></div>
     </div>
   </section>
 
@@ -637,7 +637,22 @@ dash.onData(() => {
 </script>
 
 <script>
-// Accelerated replay of the two winners on the route map and elevation profile, assuming an even pace.
+// Accelerated replay of the two winners, the median finisher and a 12-hour finisher, assuming an even pace.
+dash.calc('replay_others', {
+  inputs: ['runners'],
+  title: 'Median and 12-hour finishers',
+  description: 'The median official finisher by gun time, and the last official finisher, who crossed at exactly 12:00:00.',
+  fn: (runners) => {
+    const fin = runners.filter((r) => r.status === 'Finished').sort((a, b) => +a.time_s - +b.time_s);
+    const median = fin[(fin.length - 1) >> 1];
+    const last = fin[fin.length - 1];
+    return [
+      { who: 'Median finisher', pos: median.pos, time: median.time, time_s: +median.time_s },
+      { who: '12-hour finisher', pos: last.pos, time: last.time, time_s: +last.time_s },
+    ];
+  },
+});
+
 (() => {
   const map = document.getElementById('cx-replay-map');
   const prof = document.getElementById('cx-replay-profile');
@@ -679,8 +694,8 @@ dash.onData(() => {
   };
 
   dash.onData(() => {
-    const L = dash.data('leaders'), R = dash.data('route'), P = dash.data('places');
-    const ok = [cx.ready(map, L, R, P), cx.ready(prof, L, R)].every(Boolean);
+    const L = dash.data('leaders'), R = dash.data('route'), P = dash.data('places'), O = dash.data('replay_others');
+    const ok = [cx.ready(map, L, R, P, O), cx.ready(prof, L, R, O)].every(Boolean);
     if (!ok) {
       st.playing = false; draw = () => {}; legend.replaceChildren();
       clock.textContent = '00:00:00'; cx.text(routeKm, false, ''); setBtn();
@@ -693,6 +708,7 @@ dash.onData(() => {
     st.runners = ['Male', 'Female']
       .map((g) => L.data.find((r) => r.gender === g && r.gen_pos === '1'))
       .filter(Boolean)
+      .concat(O.data.map((r) => ({ ...r, name: r.who })))
       .map((r, i) => ({ ...r, s: +r.time_s, color: dash.colors[i] }));
 
     // Live legend: who, elapsed or finish time, distance covered.
