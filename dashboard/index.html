@@ -179,7 +179,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font-fami
   <section class="cx-grid" id="outcomes">
     <div class="cx-card">
       <h2 id="medals-title">Medals won</h2>
-      <p class="cx-note">Official finishers by medal, from gun time and finishing position.</p>
+      <p class="cx-note">Official finishers by medal, from gun time and finishing position, with each medal's share of all starters beside the count.</p>
       <div class="cx-bars dash-skeleton" id="cx-medals" data-source="medals" style="min-height:300px"></div>
     </div>
     <div class="cx-card">
@@ -342,7 +342,7 @@ dash.calc('status', {
 dash.calc('medals', {
   inputs: ['runners'],
   title: 'Medals won',
-  description: 'Official finishers by 2025 medal: top 10 per gender gold, then by gun time.',
+  description: 'Official finishers by 2025 medal (top 10 per gender gold, then by gun time), and each medal as a share of starters (everyone except non-starters).',
   fn: (runners) => {
     const medals = [
       ['Gold', 'Top 10 men and women'],
@@ -365,8 +365,12 @@ dash.calc('medals', {
       if (t < 11 * 3600) return 'Bronze';
       return 'Vic Clapham';
     };
+    const starters = runners.filter((r) => r.status !== 'Did not start').length;
     const fin = runners.filter((r) => r.status === 'Finished').map(medalOf);
-    return medals.map(([medal, window]) => ({ medal, window, finishers: fin.filter((m) => m === medal).length }));
+    return medals.map(([medal, window]) => {
+      const finishers = fin.filter((m) => m === medal).length;
+      return { medal, window, finishers, share_of_starters: finishers / starters };
+    });
   },
 });
 
@@ -537,7 +541,7 @@ dash.onData(() => {
   dash.onData(() => {
     const m = dash.data('medals');
     if (cx.ready(medals, m)) {
-      cx.bars(medals, m.data, { label: (r) => r.medal, sub: (r) => r.window, value: (r) => r.finishers, color: () => dash.colors[0] });
+      cx.bars(medals, m.data, { label: (r) => r.medal, sub: (r) => r.window, value: (r) => r.finishers, note: (r) => cx.pct(r.share_of_starters), color: () => dash.colors[0] });
     }
     const s = dash.data('status');
     if (cx.ready(status, s)) {
