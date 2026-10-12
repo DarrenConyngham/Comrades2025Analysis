@@ -14,5 +14,4 @@ python -m http.server 8000   # then open http://localhost:8000
 - `data/` – the files the page reads (`runners.csv` has names and race numbers removed).
 - `prepare_data.py` – rebuilds `runners.csv` and `leaders.csv` from `comrades_2025_results.csv`.
 - `prepare_route.py` – resamples a Strava GPX of the route to `route.json` (drops timestamps and heart rate).
-- `prepare_coast.js` – extracts the Durban coastline from Natural Earth (world-atlas) to `coast.json`.
 - `dash-shim.js` – a small stand-in for the hosted dashboard's data API so the page runs locally.

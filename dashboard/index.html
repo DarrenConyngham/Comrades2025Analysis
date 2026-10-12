@@ -94,7 +94,6 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font-fami
 .cx-replay-legend .t { color: var(--color-fg-muted); margin-left: .4rem; }
 .cx-chart svg text.cx-place { fill: var(--color-fg); }
 .cx-chart svg text.cx-place.end { font-weight: var(--cds-font-weight-medium); }
-.cx-chart svg text.cx-sea { font-style: italic; }
 .cx-chart svg text.cx-runner { fill: var(--color-fg); font-size: var(--cds-font-size-body); }
 .cx-chart svg text.cx-runner tspan.t { fill: var(--color-fg-muted); }
 @media (max-width: 40rem) { .cx-table .wide { display: none; } }
@@ -162,7 +161,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font-fami
         </div>
       </div>
       <div class="cx-replay-legend" id="cx-replay-legend" data-source="leaders"></div>
-      <div class="cx-chart dash-skeleton" id="cx-replay-map" data-source="route coast places leaders" style="min-height:260px"></div>
+      <div class="cx-chart dash-skeleton" id="cx-replay-map" data-source="route places leaders" style="min-height:260px"></div>
       <div class="cx-chart dash-skeleton" id="cx-replay-profile" data-source="route leaders" style="min-height:130px; margin-top: var(--cds-gap-sm)"></div>
     </div>
   </section>
@@ -680,8 +679,8 @@ dash.onData(() => {
   };
 
   dash.onData(() => {
-    const L = dash.data('leaders'), R = dash.data('route'), C = dash.data('coast'), P = dash.data('places');
-    const ok = [cx.ready(map, L, R, C, P), cx.ready(prof, L, R)].every(Boolean);
+    const L = dash.data('leaders'), R = dash.data('route'), P = dash.data('places');
+    const ok = [cx.ready(map, L, R, P), cx.ready(prof, L, R)].every(Boolean);
     if (!ok) {
       st.playing = false; draw = () => {}; legend.replaceChildren();
       clock.textContent = '00:00:00'; cx.text(routeKm, false, ''); setBtn();
@@ -710,21 +709,15 @@ dash.onData(() => {
     map.replaceChildren();
     const W = map.clientWidth, H = Math.round(Math.max(260, Math.min(460, W * 0.5)));
     map.style.minHeight = `${H}px`;
-    // Mercator projection fitted to the route plus a little sea east of the finish.
+    // Mercator projection fitted to the route.
     const merc = (lon, lat) => [lon * Math.PI / 180, -Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI) / 360))];
-    const pts = [...route.map((r) => merc(r.lon, r.lat)), merc(31.1, -29.84)];
+    const pts = route.map((r) => merc(r.lon, r.lat));
     const [x0, x1] = d3.extent(pts, (q) => q[0]), [y0, y1] = d3.extent(pts, (q) => q[1]);
     const box = [[28, 34], [W - 28, H - 30]];
     const k = Math.min((box[1][0] - box[0][0]) / (x1 - x0), (box[1][1] - box[0][1]) / (y1 - y0));
     const ox = (box[0][0] + box[1][0] - k * (x0 + x1)) / 2, oy = (box[0][1] + box[1][1] - k * (y0 + y1)) / 2;
     const xy = (lon, lat) => { const [mx, my] = merc(lon, lat); return [ox + k * mx, oy + k * my]; };
     const svg = d3.select(map).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('height', H);
-    const coast = C.data.filter((r) => +r.part === 0).map((r) => [+r.lon, +r.lat]);
-    const ocean = [...coast, [33, coast[coast.length - 1][1]], [33, coast[0][1]]].map((p) => xy(...p));
-    svg.append('path').attr('d', `${d3.line()(ocean)}Z`).attr('fill', 'var(--cds-chart-muted)').attr('fill-opacity', 0.22);
-    svg.append('path').attr('d', d3.line()(coast.map((p) => xy(...p)))).attr('fill', 'none').attr('stroke', 'var(--cds-chart-axis)');
-    const [sx, sy] = xy(31.13, -29.95);
-    if (sx < W - 10 && sy < H - 10) svg.append('text').attr('class', 'cx-sea').attr('x', Math.min(sx, W - 8)).attr('y', sy).attr('text-anchor', 'end').text('Indian Ocean');
     const routeLine = d3.line().x((r) => xy(r.lon, r.lat)[0]).y((r) => xy(r.lon, r.lat)[1]);
     svg.append('path').attr('d', routeLine(route)).attr('fill', 'none').attr('stroke', 'var(--cds-chart-muted)')
       .attr('stroke-width', 5).attr('stroke-linecap', 'round').attr('stroke-linejoin', 'round');
